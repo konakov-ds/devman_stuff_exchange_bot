@@ -1,7 +1,10 @@
 import os
+import django
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
 from telegram.ext import MessageHandler, CommandHandler, Updater, Filters, CallbackContext
 from dotenv import load_dotenv
+
+from telbot.models import Profile, Message
 
 load_dotenv()
 # Загружаем токен для телеграм бота
@@ -71,6 +74,14 @@ def create_category_keyboard():
 
 
 def start_bot(update, context):
+    chat_id = update.effective_chat.id
+    text = update.message.text
+    p, _ = Profile.objects.get_or_create(
+        tg_id=chat_id,
+        defaults={
+            'name': update.message.from_user.name,
+        }
+    )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Привет!\nЯ бот для обмена вещей.\nВыбери нужный пункт в меню.",
