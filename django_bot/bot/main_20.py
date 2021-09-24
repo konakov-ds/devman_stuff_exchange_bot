@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 # Загружаем токен для телеграм бота
-token = os.getenv('TELEGRAM_TOKEN2')
+token = os.getenv('TELEGRAM_TOKEN')
 
 PHOTO, NAME = range(2)
 
@@ -113,7 +113,7 @@ def cancel_keyboard():
     return markup
 
 
-def finde_keybord():
+def find_keyboard():
     markup = ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -130,14 +130,13 @@ def finde_keybord():
     return markup
 
 
-
-
 def start_bot(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Привет!\nЯ бот для обмена вещей.\nВыбери нужный пункт в меню.",
         reply_markup=main_keyboard(),
     )
+
 
 def select_category_handler(update, context):
     if update.message.text == '✅ Добавить вещь':
@@ -166,7 +165,7 @@ def select_category_handler(update, context):
         )
 
 
-def finde_thing_handler(update, context):
+def find_thing_handler(update, context):
     if update.message.text == '🔍 Найти вещь':
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -192,7 +191,7 @@ def name_category_handler(update, context):
 
 
 def photo_handler(update, context):
-    if update.message.photo[-1] != None:
+    if update.message.photo[-1]:
         file = update.message.photo[-1].get_file()
         file.download()
         context.bot.send_message(
@@ -244,14 +243,13 @@ def main():
         ],
     )
 
-
     dispatcher.add_handler(CommandHandler('start', start_bot))
 
     dispatcher.add_handler(conv_handler)
 
     dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=select_category_handler))
 
-    dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=finde_thing_handler))
+    dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=find_thing_handler))
 
     updater.start_polling()
     updater.idle()
