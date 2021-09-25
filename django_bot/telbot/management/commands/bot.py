@@ -70,17 +70,32 @@ class Command(BaseCommand):
         updater.idle()
 
 
-def main_keyboard():
-    markup = ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text='✅ Добавить вещь'),
-                KeyboardButton(text='🔍 Найти вещь')
+def main_keyboard(user_id):
+    database_user_id = Profile.objects.filter(tg_id=user_id).id
+    print('ИД пользователя: ', database_user_id)
+    active_user = Message.objects.filter(profile_id=database_user_id)
+    print('Количество записей от пользователя: ', active_user)
+    if active_user.count() > 0:
+        markup = ReplyKeyboardMarkup(
+            keyboard=[
+                [
+                    KeyboardButton(text='✅ Добавить вещь'),
+                    KeyboardButton(text='🔍 Найти вещь')
+                ],
             ],
-        ],
-        resize_keyboard=True
-    )
-    return markup
+            resize_keyboard=True
+        )
+        return markup
+    else:
+        markup = ReplyKeyboardMarkup(
+            keyboard=[
+                [
+                    KeyboardButton(text='✅ Добавить вещь'),
+                ],
+            ],
+            resize_keyboard=True
+        )
+        return markup
 
 
 def first_category_keyboard():
@@ -171,10 +186,11 @@ def find_keyboard():
 
 def start_bot(update, context):
     write_user_to_db(update)
+    tg_id = update.effective_chat.id
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Привет!\nЯ бот для обмена вещей.\nВыбери нужный пункт в меню.",
-        reply_markup=main_keyboard(),
+        reply_markup=main_keyboard(tg_id),
     )
 
 
@@ -209,10 +225,11 @@ def select_category_handler(update, context):
             reply_markup=first_category_keyboard()
         )
     elif update.message.text == '🔁 На главную':
+        tg_id = update.update.effective_chat.id
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Выберите пункт меню.',
-            reply_markup=main_keyboard()
+            reply_markup=main_keyboard(tg_id)
         )
 
 
