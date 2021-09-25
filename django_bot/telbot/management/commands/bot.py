@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
 from telegram.ext import ConversationHandler, MessageHandler, CommandHandler, Updater, Filters, CallbackContext
 from dotenv import load_dotenv
+import random
 
 from telbot.models import Profile, Message, Photo
 from django.core.files import File
@@ -184,6 +185,17 @@ def select_category_handler(update, context):
             text='Вы на первой странице категорий',
             reply_markup=first_category_keyboard(),
         )
+
+    elif update.message.text == '🔍 Найти вещь':
+        photo_path = get_photo_to_show(update)
+        print(photo_path)
+        send_photo_to_user(update, context, path=photo_path)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Показана случайная вещь из базы бота.',
+            reply_markup=main_keyboard()
+        )
+
     elif update.message.text == '➡ Вперед':
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -206,11 +218,15 @@ def select_category_handler(update, context):
 
 def find_thing_handler(update, context):
     if update.message.text == '🔍 Найти вещь':
+        photo_path = get_photo_to_show(update)
+        print(photo_path)
+        send_photo_to_user(update, context, path=photo_path)
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Показана случайная вещь из базы бота.',
-            reply_markup=find_keyboard()
+            reply_markup=main_keyboard()
         )
+
     elif update.message.text == '🔁 На главную':
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -240,6 +256,7 @@ def photo_handler(update, context):
             reply_markup=cancel_keyboard()
         )
         write_m_photo_to_db(update)
+        get_photo_to_show(update)
         return NAME
 
 
@@ -284,11 +301,6 @@ def write_m_category_to_db(update: Update):
         profile=p,
         category=update.message.text
     )
-    # Message(
-    #     #id=last.id,
-    #     profile=p,
-    #     category=update.message.text
-    # ).save()
 
 
 def write_m_name_to_db(update: Update):
@@ -325,3 +337,23 @@ def write_m_photo_to_db(update: Update):
     )
     last = Message.objects.filter(profile=p).last()
     last.photo.add(photo)
+
+
+def send_photo_to_user(update: Update, context, path):
+    context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=path,
+        reply_markup=main_keyboard()
+    )
+
+
+def get_photo_to_show(update: Update):
+    exclude_profile = Profile.objects.get(tg_id=update.effective_chat.id)
+
+    messages = Message.objects.exclude(profile=exclude_profile)
+    messages = messages.exclude(category__isnull=True).exclude(category__exact='')
+    messages = messages.exclude(name__isnull=True).exclude(name__exact='')
+
+    photos = Photo.objects.filter(message__in=messages)
+    photo = random.choice(photos)
+    return photo.photo
