@@ -1,6 +1,6 @@
 import os
 from django.core.management.base import BaseCommand
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Update, user
 from telegram.ext import ConversationHandler, MessageHandler, CommandHandler, Updater, Filters, CallbackContext
 from dotenv import load_dotenv
 import random
@@ -73,10 +73,8 @@ class Command(BaseCommand):
 
 
 def main_keyboard(user_id):
-    database_user_id = Profile.objects.filter(tg_id=user_id).id
-    print('ИД пользователя: ', database_user_id)
-    active_user = Message.objects.filter(profile_id=database_user_id)
-    print('Количество записей от пользователя: ', active_user)
+    database_user_id = Profile.objects.filter(tg_id=user_id)
+    active_user = Message.objects.filter(profile_id=database_user_id[0].id)
     if active_user.count() > 0:
         markup = ReplyKeyboardMarkup(
             keyboard=[
@@ -188,11 +186,11 @@ def find_keyboard():
 
 def start_bot(update, context):
     write_user_to_db(update)
-    tg_id = update.effective_chat.id
+    user_id = update.effective_chat.id
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Привет!\nЯ бот для обмена вещей.\nВыбери нужный пункт в меню.",
-        reply_markup=main_keyboard(tg_id),
+        reply_markup=main_keyboard(user_id),
     )
 
 
@@ -235,11 +233,11 @@ def select_category_handler(update, context):
             reply_markup=first_category_keyboard()
         )
     elif update.message.text == '🔁 На главную':
-        tg_id = update.update.effective_chat.id
+        user_id = update.effective_chat.id
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Выберите пункт меню.',
-            reply_markup=main_keyboard(tg_id)
+            reply_markup=main_keyboard(user_id)
         )
 
 
@@ -255,10 +253,11 @@ def find_thing_handler(update, context):
         send_photo_to_user(update, context, path=photo_path)
 
     elif update.message.text == '🔁 На главную':
+        user_id = update.effective_chat.id
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Выберите пункт меню.',
-            reply_markup=main_keyboard()
+            reply_markup=main_keyboard(user_id)
         )
 
 
@@ -289,21 +288,23 @@ def photo_handler(update, context):
 
 def name_thing_handler(update, context):
     if update.message.text != '❌ Отменить':
+        user_id = update.effective_chat.id
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f'Название вещи получено!\n{update.message.text} добавлено в базу.',
-            reply_markup=main_keyboard()
+            reply_markup=main_keyboard(user_id)
         )
         write_m_name_to_db(update)
         return ConversationHandler.END
 
 
-def cancel_handler(update: Update, context):
+def cancel_handler(update, context):
     if update.message.text == '❌ Отменить':
+        user_id = update.effective_chat.id
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f'Вы отменили размещение вещи. Чтобы начать заново отправьте /start',
-            reply_markup=main_keyboard()
+            reply_markup=main_keyboard(user_id)
         )
         return ConversationHandler.END
 
@@ -377,6 +378,7 @@ def write_liked_photo_to_db(update: Update):
 
 
 def send_photo_to_user(update: Update, context, path):
+    
     context.bot.send_photo(
         chat_id=update.effective_chat.id,
         photo=path,
@@ -395,7 +397,6 @@ def get_photo_to_show(update: Update):
     messages = messages.exclude(name__isnull=True).exclude(name__exact='')
 
     photos = Photo.objects.filter(photo__in=liked_stuff)
-    #photos = Photo.objects.filter(message__in=messages)
     photo = random.choice(photos)
     random_photo.clear()
     random_photo.append(photo)
