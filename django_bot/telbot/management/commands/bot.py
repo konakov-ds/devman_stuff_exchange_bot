@@ -62,9 +62,11 @@ class Command(BaseCommand):
 
         dispatcher.add_handler(conv_handler)
 
+        #dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=find_thing_handler))
+
         dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=select_category_handler))
 
-        dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=find_thing_handler))
+        #dispatcher.add_handler(MessageHandler(filters=Filters.text, callback=find))
 
         updater.start_polling()
         updater.idle()
@@ -193,7 +195,15 @@ def select_category_handler(update, context):
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Показана случайная вещь из базы бота.',
-            reply_markup=main_keyboard()
+            reply_markup=find_keyboard()
+        )
+
+    elif update.message.text == '👍 Нравится':
+        write_liked_photo_to_db(update)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Вам понравилось, отлично!',
+            reply_markup=find_keyboard()
         )
 
     elif update.message.text == '➡ Вперед':
@@ -218,14 +228,14 @@ def select_category_handler(update, context):
 
 def find_thing_handler(update, context):
     if update.message.text == '🔍 Найти вещь':
-        photo_path = get_photo_to_show(update)
-        print(photo_path)
-        send_photo_to_user(update, context, path=photo_path)
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Показана случайная вещь из базы бота.',
-            reply_markup=main_keyboard()
+            reply_markup=find_keyboard()
         )
+        photo_path = get_photo_to_show(update)
+        print(photo_path)
+        send_photo_to_user(update, context, path=photo_path)
 
     elif update.message.text == '🔁 На главную':
         context.bot.send_message(
@@ -339,6 +349,16 @@ def write_m_photo_to_db(update: Update):
     last.photo.add(photo)
 
 
+random_photo = []
+
+
+def write_liked_photo_to_db(update: Update):
+    profile = Profile.objects.get(
+        tg_id=update.effective_chat.id
+    )
+    profile.liked_stuff.add(random_photo[0])
+
+
 def send_photo_to_user(update: Update, context, path):
     context.bot.send_photo(
         chat_id=update.effective_chat.id,
@@ -349,11 +369,17 @@ def send_photo_to_user(update: Update, context, path):
 
 def get_photo_to_show(update: Update):
     exclude_profile = Profile.objects.get(tg_id=update.effective_chat.id)
+    liked_stuff = Profile.objects.filter(liked_stuff__isnull=False).filter(tg_id=update.effective_chat.id)
+    liked_stuff = [[j.photo for j in i.liked_stuff.all()] for i in liked_stuff.all()][0]
+    #print(liked_stuff)
 
     messages = Message.objects.exclude(profile=exclude_profile)
     messages = messages.exclude(category__isnull=True).exclude(category__exact='')
     messages = messages.exclude(name__isnull=True).exclude(name__exact='')
 
-    photos = Photo.objects.filter(message__in=messages)
+    photos = Photo.objects.filter(photo__in=liked_stuff)
+    #photos = Photo.objects.filter(message__in=messages)
     photo = random.choice(photos)
+    random_photo.clear()
+    random_photo.append(photo)
     return photo.photo
