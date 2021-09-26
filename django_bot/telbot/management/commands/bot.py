@@ -382,22 +382,51 @@ def send_photo_to_user(update: Update, context, path):
     context.bot.send_photo(
         chat_id=update.effective_chat.id,
         photo=path,
-        reply_markup=main_keyboard()
+        reply_markup=main_keyboard(update.effective_chat.id)
     )
 
 
-def get_photo_to_show(update: Update):
-    exclude_profile = Profile.objects.get(tg_id=update.effective_chat.id)
+def get_liked_stuff(update: Update):
     liked_stuff = Profile.objects.filter(liked_stuff__isnull=False).filter(tg_id=update.effective_chat.id)
     liked_stuff = [[j.photo for j in i.liked_stuff.all()] for i in liked_stuff.all()][0]
-    #print(liked_stuff)
+    return liked_stuff
+
+
+def get_filled_messages(update: Update):
+    exclude_profile = Profile.objects.get(tg_id=update.effective_chat.id)
 
     messages = Message.objects.exclude(profile=exclude_profile)
+
     messages = messages.exclude(category__isnull=True).exclude(category__exact='')
     messages = messages.exclude(name__isnull=True).exclude(name__exact='')
+    return messages
 
-    photos = Photo.objects.filter(photo__in=liked_stuff)
-    photo = random.choice(photos)
-    random_photo.clear()
-    random_photo.append(photo)
-    return photo.photo
+
+def get_message_random_photo(update):
+    messages = get_filled_messages(update)
+    message = random.choice(messages)
+
+    photo = message.photo
+    photo = [p for p in photo.all()][0]
+    return photo
+
+
+def get_photo_to_show(update: Update):
+    liked_stuff = get_liked_stuff(update)
+
+    if liked_stuff:
+        liked_photos = Photo.objects.filter(photo__in=liked_stuff)
+        message_photos = [get_message_random_photo(update) for _ in range(3)]
+        photos = list(liked_photos) + message_photos
+        photo = random.choice(photos)
+
+        random_photo.clear()
+        random_photo.append(photo)
+        return photo.photo
+
+    else:
+        photo = get_message_random_photo(update)
+
+        random_photo.clear()
+        random_photo.append(photo)
+        return photo.photo
