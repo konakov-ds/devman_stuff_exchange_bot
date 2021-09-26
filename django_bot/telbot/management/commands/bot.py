@@ -203,12 +203,12 @@ def select_category_handler(update, context):
         )
 
     elif update.message.text == '🔍 Найти вещь':
-        photo_path = get_photo_to_show(update)
-        print(photo_path)
+        photo_path, photo = get_photo_to_show(update)
+        message = Message.objects.get(photo=photo)
         send_photo_to_user(update, context, path=photo_path)
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text='Показана случайная вещь из базы бота.',
+            text=f'Мы нашли для вас: {message.name} из категории {message.category}',
             reply_markup=find_keyboard()
         )
 
@@ -422,11 +422,11 @@ def get_photo_to_show(update: Update):
 
         random_photo.clear()
         random_photo.append(photo)
-        return photo.photo
+        return photo.photo, photo
 
     else:
         photo = get_message_random_photo(update)
 
         random_photo.clear()
         random_photo.append(photo)
-        return photo.photo
+        return photo.photo, photo
