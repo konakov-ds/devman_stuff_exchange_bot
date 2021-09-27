@@ -208,7 +208,7 @@ def select_category_handler(update, context):
         send_photo_to_user(update, context, path=photo_path)
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f'Мы нашли для вас: {message.name} из категории {message.category}',
+            text=f'Мы нашли для вас:\n{message.name}\nИз категории {message.category}',
             reply_markup=find_keyboard()
         )
 
