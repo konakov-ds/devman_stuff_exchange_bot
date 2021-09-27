@@ -235,9 +235,8 @@ def select_category_handler(update, context):
             reply_markup=find_keyboard()
         )
         owner = get_owner_photo(update)
-        print(owner)
-        random_photo_ex[update.effective_chat.id].clear()
         exchange_users = get_to_exchange_users(owner)
+        random_photo_ex[update.effective_chat.id].clear()
         if update.effective_chat.id in exchange_users:
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -426,9 +425,11 @@ def get_liked_stuff(update: Update):
 
 
 def get_owner_photo(update):
-    photo = random_photo_ex[update.effective_chat.id][0]
+    print(random_photo_ex)
+    photo = random_photo_ex[update.effective_chat.id][-1]
     message = Message.objects.get(photo=photo)
     profile = message.profile
+    print(profile.name)
     return profile
 
 
@@ -437,11 +438,11 @@ def get_to_exchange_users(profile):
     exchange_users = []
     if len(exchange_stuff.all()) > 0:
         print(exchange_stuff.all())
-        #exchange_stuff = [j.id for j in exchange_stuff.all()]
         messages = Message.objects.filter(photo__in=exchange_stuff.all())
         exchange_users = set([i.profile for i in messages])
+        exchange_users1 = [i.name for i in exchange_users]
         exchange_users = [i.tg_id for i in exchange_users]
-        print(exchange_users)
+        print(exchange_users1)
 
         return exchange_users
     return exchange_users
@@ -470,10 +471,10 @@ def get_photo_to_show(update: Update):
     liked_stuff = get_liked_stuff(update)
     if liked_stuff:
         liked_photos = Photo.objects.filter(photo__in=liked_stuff)
-        message_photos = [get_message_random_photo(update) for _ in range(30)]
+        message_photos = [get_message_random_photo(update) for _ in range(25)]
         photos = list(liked_photos) + message_photos
         photo = random.choice(photos)
-
+        print(photo)
         random_photo[update.effective_chat.id].clear()
         random_photo[update.effective_chat.id].append(photo)
         return photo.photo, photo
