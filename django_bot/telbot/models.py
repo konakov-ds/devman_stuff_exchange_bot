@@ -11,7 +11,8 @@ class Profile(models.Model):
     tg_id = models.IntegerField(unique=True)
     created_at = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=100)
-    liked_stuff = models.ManyToManyField(Photo)
+    liked_stuff = models.ManyToManyField(Photo, related_name='liked')
+    exchange_stuff = models.ManyToManyField(Photo, related_name='exchange')
 
 
 class Message(models.Model):

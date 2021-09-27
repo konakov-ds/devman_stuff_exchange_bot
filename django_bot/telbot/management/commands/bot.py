@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from django.core.management.base import BaseCommand
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Update, user
 from telegram.ext import ConversationHandler, MessageHandler, CommandHandler, Updater, Filters, CallbackContext
@@ -32,6 +33,9 @@ categories = [
     '🎨 Вещи для творчества и хобби',
     '🏆 Коллекционные вещи'
  ]
+
+random_photo = defaultdict()
+random_photo_ex = defaultdict()
 
 
 class Command(BaseCommand):
@@ -187,6 +191,8 @@ def find_keyboard():
 def start_bot(update, context):
     write_user_to_db(update)
     user_id = update.effective_chat.id
+    random_photo[update.effective_chat.id] = []
+    random_photo_ex[update.effective_chat.id] = []
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Привет!\nЯ бот для обмена вещей.\nВыбери нужный пункт в меню.",
@@ -211,6 +217,7 @@ def select_category_handler(update, context):
             text=f'Мы нашли для вас:\n{message.name}\nИз категории {message.category}',
             reply_markup=find_keyboard()
         )
+        random_photo_ex[update.effective_chat.id].append(photo)
 
     elif update.message.text == '👍 Нравится':
         write_liked_photo_to_db(update)
@@ -219,6 +226,24 @@ def select_category_handler(update, context):
             text='Вам понравилось, отлично!',
             reply_markup=find_keyboard()
         )
+
+    elif update.message.text == '👏 Предложить обмен':
+        write_exchange_photo_to_db(update)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Хорошая идея!\nМы проверим, готов ли владелец к обмену с вами',
+            reply_markup=find_keyboard()
+        )
+        owner = get_owner_photo(update)
+        print(owner)
+        random_photo_ex[update.effective_chat.id].clear()
+        exchange_users = get_to_exchange_users(owner)
+        if update.effective_chat.id in exchange_users:
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f'Владелец {owner.name} готов к обмену',
+                reply_markup=find_keyboard()
+            )
 
     elif update.message.text == '➡ Вперед':
         context.bot.send_message(
@@ -367,14 +392,18 @@ def write_m_photo_to_db(update: Update):
     last.photo.add(photo)
 
 
-random_photo = []
-
-
 def write_liked_photo_to_db(update: Update):
     profile = Profile.objects.get(
         tg_id=update.effective_chat.id
     )
-    profile.liked_stuff.add(random_photo[0])
+    profile.liked_stuff.add(random_photo[update.effective_chat.id][0])
+
+
+def write_exchange_photo_to_db(update: Update):
+    profile = Profile.objects.get(
+        tg_id=update.effective_chat.id
+    )
+    profile.exchange_stuff.add(random_photo_ex[update.effective_chat.id][0])
 
 
 def send_photo_to_user(update: Update, context, path):
@@ -388,8 +417,34 @@ def send_photo_to_user(update: Update, context, path):
 
 def get_liked_stuff(update: Update):
     liked_stuff = Profile.objects.filter(liked_stuff__isnull=False).filter(tg_id=update.effective_chat.id)
-    liked_stuff = [[j.photo for j in i.liked_stuff.all()] for i in liked_stuff.all()][0]
-    return liked_stuff
+    print(liked_stuff)
+    if liked_stuff:
+        liked_stuff = [[j.photo for j in i.liked_stuff.all()] for i in liked_stuff.all()][0]
+        return liked_stuff
+    else:
+        return []
+
+
+def get_owner_photo(update):
+    photo = random_photo_ex[update.effective_chat.id][0]
+    message = Message.objects.get(photo=photo)
+    profile = message.profile
+    return profile
+
+
+def get_to_exchange_users(profile):
+    exchange_stuff = profile.exchange_stuff
+    exchange_users = []
+    if len(exchange_stuff.all()) > 0:
+        print(exchange_stuff.all())
+        #exchange_stuff = [j.id for j in exchange_stuff.all()]
+        messages = Message.objects.filter(photo__in=exchange_stuff.all())
+        exchange_users = set([i.profile for i in messages])
+        exchange_users = [i.tg_id for i in exchange_users]
+        print(exchange_users)
+
+        return exchange_users
+    return exchange_users
 
 
 def get_filled_messages(update: Update):
@@ -413,20 +468,19 @@ def get_message_random_photo(update):
 
 def get_photo_to_show(update: Update):
     liked_stuff = get_liked_stuff(update)
-
     if liked_stuff:
         liked_photos = Photo.objects.filter(photo__in=liked_stuff)
-        message_photos = [get_message_random_photo(update) for _ in range(3)]
+        message_photos = [get_message_random_photo(update) for _ in range(30)]
         photos = list(liked_photos) + message_photos
         photo = random.choice(photos)
 
-        random_photo.clear()
-        random_photo.append(photo)
+        random_photo[update.effective_chat.id].clear()
+        random_photo[update.effective_chat.id].append(photo)
         return photo.photo, photo
 
     else:
         photo = get_message_random_photo(update)
 
-        random_photo.clear()
-        random_photo.append(photo)
+        random_photo[update.effective_chat.id].clear()
+        random_photo[update.effective_chat.id].append(photo)
         return photo.photo, photo
